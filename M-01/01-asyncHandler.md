@@ -47,9 +47,35 @@ export const asyncHandler = (fn: RequestHandler): RequestHandler => {
 
 ---
 
-### ৩. `src/middleware/errorHandler.ts` (Global Control Room)
+### ৩. `src/middleware/globalErrorHandler.ts` (Global Control Room)
 
 > **কাজ:** এটি পুরো অ্যাপ্লিকেশনের **সেন্ট্রাল কন্ট্রোল রুম**। সব এরর এখানে এসে জমা হয়। এটি নির্ধারণ করে ডেভেলপমেন্ট মোডে বিস্তারিত এরর (Stack trace) এবং প্রোডাকশন মোডে ইউজার-ফ্রেন্ডলি মেসেজ দেখাবে কি না।
+
+```ts
+// src/middleware/globalErrorHandler.ts
+import { ErrorRequestHandler } from "express";
+import status from "http-status";
+import { envVars } from "../config";
+
+const globalErrorHandler: ErrorRequestHandler = (err, req, res, next) => {
+  // যদি এররটি আমাদের AppError না হয় (যেমন DB error), তবে ডিফল্ট ৫০০ ধরা
+  let statusCode = err.statusCode || 500;
+  let message = err.message || "Internal Server Error";
+
+  // Mongoose Duplicate Key Error হ্যান্ডল করার উদাহরণ (Pro-tip)
+  if (err.code === 11000) {
+    statusCode = 400;
+    message = "Duplicate field value entered";
+  }
+
+  res.status(statusCode).json({
+    success: false,
+    message,
+    stack: envVars.NODE_ENV === "development" ? err.stack : undefined,
+  });
+};
+export default globalErrorHandler;
+```
 
 ---
 
