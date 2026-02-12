@@ -1,32 +1,49 @@
-# set up environment variables
 
-```typescript
+
+# 📦 Environment Variables Loader (TypeScript)
+
+এই ফাইলটি প্রজেক্টে ব্যবহৃত সকল গুরুত্বপূর্ণ **environment variable** লোড ও ভ্যালিডেশন করার জন্য ব্যবহৃত হয়।
+
+এটি নিশ্চিত করে যে `.env` ফাইলে প্রয়োজনীয় সব ভ্যারিয়েবল আছে কিনা।
+কোনোটি না থাকলে অ্যাপ স্টার্ট হওয়ার আগেই error throw করবে।
+
+---
+
+## 📁 `env.ts`
+
+```ts
 import dotenv from "dotenv";
 import status from "http-status";
-import path from "path";
 import AppError from "../errorHelpers/AppError";
 
-// ১. প্রজেক্টের রুট থেকে .env লোড করা নিশ্চিত করা
-dotenv.config({ path: path.join(process.cwd(), ".env") });
+dotenv.config();
 
-// ২. ইন্টারফেস ডিফাইন করা (টাইপ সেফটির জন্য)
+/**
+ * Environment Variables Type Definition
+ */
 interface EnvConfig {
   NODE_ENV: string;
   PORT: string;
   DATABASE_URL: string;
+
   BETTER_AUTH_SECRET: string;
   BETTER_AUTH_URL: string;
+
   ACCESS_TOKEN_SECRET: string;
   REFRESH_TOKEN_SECRET: string;
+
   ACCESS_TOKEN_EXPIRES_IN: string;
   REFRESH_TOKEN_EXPIRES_IN: string;
+
   BETTER_AUTH_SESSION_TOKEN_EXPIRES_IN: string;
   BETTER_AUTH_SESSION_TOKEN_UPDATE_AGE: string;
 }
 
+/**
+ * Load and Validate Required Environment Variables
+ */
 const loadEnvVariables = (): EnvConfig => {
-  // ৩. রিকোয়ার্ড ভ্যারিয়েবলগুলোর লিস্ট
-  const requiredEnvVariables: (keyof EnvConfig)[] = [
+  const requiredEnvVariables = [
     "NODE_ENV",
     "PORT",
     "DATABASE_URL",
@@ -40,50 +57,129 @@ const loadEnvVariables = (): EnvConfig => {
     "BETTER_AUTH_SESSION_TOKEN_UPDATE_AGE",
   ];
 
-  // ৪. লুপ চালিয়ে চেক করা এবং একটি অবজেক্টে ডেটা জমানো
-  const config = {} as EnvConfig;
-
-  for (const variable of requiredEnvVariables) {
-    const value = process.env[variable];
-
-    if (!value) {
-      // ৫. কোনো ভ্যারিয়েবল মিসিং থাকলে কাস্টম অ্যাপ এরর থ্রো করা
+  requiredEnvVariables.forEach((variable) => {
+    if (!process.env[variable]) {
       throw new AppError(
         status.INTERNAL_SERVER_ERROR,
-        `Environment variable "${variable}" is missing in .env file!`,
+        `Environment variable ${variable} is missing in .env file`
       );
     }
+  });
 
-    config[variable] = value;
-  }
+  return {
+    NODE_ENV: process.env.NODE_ENV as string,
+    PORT: process.env.PORT as string,
+    DATABASE_URL: process.env.DATABASE_URL as string,
 
-  return config;
+    BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET as string,
+    BETTER_AUTH_URL: process.env.BETTER_AUTH_URL as string,
+
+    ACCESS_TOKEN_SECRET: process.env.ACCESS_TOKEN_SECRET as string,
+    REFRESH_TOKEN_SECRET: process.env.REFRESH_TOKEN_SECRET as string,
+
+    ACCESS_TOKEN_EXPIRES_IN: process.env.ACCESS_TOKEN_EXPIRES_IN as string,
+    REFRESH_TOKEN_EXPIRES_IN: process.env.REFRESH_TOKEN_EXPIRES_IN as string,
+
+    BETTER_AUTH_SESSION_TOKEN_EXPIRES_IN:
+      process.env.BETTER_AUTH_SESSION_TOKEN_EXPIRES_IN as string,
+    BETTER_AUTH_SESSION_TOKEN_UPDATE_AGE:
+      process.env.BETTER_AUTH_SESSION_TOKEN_UPDATE_AGE as string,
+  };
 };
 
-// ৬. একবারে এক্সপোর্ট করা যাতে পুরো অ্যাপে ইমপোর্ট করে ব্যবহার করা যায়
 export const envVars = loadEnvVariables();
 ```
 
 ---
 
-### বিস্তারিত ব্যাখ্যা (কেন এটি ভালো?)
+# 🧠 কীভাবে কাজ করে?
 
-১. **টাইপ সেফটি (Interface):** `interface EnvConfig` ব্যবহারের ফলে আপনি যখন অ্যাপের অন্য কোথাও `envVars.` লিখবেন, তখন আপনার এডিটর (VS Code) আপনাকে অটোমেটিক সাজেস্ট করবে কোন কোন কি (key) সেখানে আছে। এতে বানান ভুল হওয়ার সম্ভাবনা থাকে না।
+## 1️⃣ `dotenv.config()`
 
-২. **সেন্ট্রালাইজড ভ্যালিডেশন (Validation Logic):** আপনি সরাসরি `process.env` ব্যবহার না করে একটি ফাংশনের মাধ্যমে চেক করছেন। এর বড় সুবিধা হলো—যদি কেউ ভুলবশত `.env` ফাইল থেকে কোনো সিক্রেট ডিলিট করে দেয়, তবে আপনার সার্ভারটি চালু হবে না। এটি প্রোডাকশনে বড় কোনো ক্রাশ বা সিকিউরিটি হোল থেকে বাঁচায়।
+`.env` ফাইল থেকে সব environment variable লোড করে `process.env` এ সেট করে।
 
-৩. **`path.join(process.cwd(), '.env')`:** কখনও কখনও ডিপ্লয়মেন্টের সময় বা আলাদা ডিরেক্টরি থেকে স্ক্রিপ্ট রান করলে `.env` ফাইল খুঁজে পায় না। `process.cwd()` ব্যবহার করলে এটি সবসময় প্রজেক্টের মেইন ফোল্ডার থেকে ফাইলটি লোড করবে, যা কোডকে আরও রোবাস্ট (Robust) করে।
+---
 
-৪. **ক্লিন কোড (DRY Principle):** আগের কোডে আপনি একই ভ্যারিয়েবলের নাম বারবার লিখছিলেন। রিফ্যাক্ট করা কোডে আমি শুধু একটি লুপ ব্যবহার করেছি যা অটোমেটিক `config` অবজেক্টটি তৈরি করে দিচ্ছে। এতে কোড ছোট হয়েছে এবং পড়তে সুবিধা হচ্ছে।
+## 2️⃣ `EnvConfig` Interface
 
-### কীভাবে ব্যবহার করবেন?
+এই interface বলে দেয় কোন কোন variable থাকতে হবে এবং সেগুলোর type কী হবে।
 
-এখন আপনার `server.ts` বা ডাটাবেস কানেকশন ফাইলে জাস্ট এভাবে ইমপোর্ট করবেন:
+এতে:
 
-```typescript
-import { envVars } from "./config/envConfig";
+* Type safety পাওয়া যায়
+* ভুল variable ব্যবহার করলে TypeScript error দিবে
 
-// ব্যবহার:
+---
+
+## 3️⃣ `requiredEnvVariables` Array
+
+এখানে সব বাধ্যতামূলক `.env` variable রাখা হয়েছে।
+
+যদি কোনোটা missing থাকে → অ্যাপ স্টার্ট হওয়ার আগেই error দিবে।
+
+---
+
+## 4️⃣ Validation Logic
+
+```ts
+requiredEnvVariables.forEach((variable) => {
+  if (!process.env[variable]) {
+    throw new AppError(...);
+  }
+});
+```
+
+এখানে আমরা চেক করছি:
+
+👉 `.env` এ সব variable আছে কিনা
+👉 না থাকলে custom error throw করছি
+
+এতে production এ গিয়ে crash হওয়ার আগে development stage-এই ধরা পড়ে।
+
+---
+
+## 5️⃣ Final Export
+
+```ts
+export const envVars = loadEnvVariables();
+```
+
+এখন পুরো প্রজেক্টে তুমি ব্যবহার করতে পারবে:
+
+```ts
+import { envVars } from "../config/env";
+
 console.log(envVars.PORT);
-console.log(envVars.DATABASE_URL);
+```
+
+---
+
+# 🎯 কেন এটা ব্যবহার করা ভালো?
+
+✅ Centralized config
+✅ Runtime validation
+✅ Production-safe
+✅ TypeScript support
+✅ Crash early strategy
+
+---
+
+# 📌 Example `.env`
+
+```env
+NODE_ENV=development
+PORT=5000
+DATABASE_URL=postgresql://...
+
+BETTER_AUTH_SECRET=your_secret
+BETTER_AUTH_URL=http://localhost:5000
+
+ACCESS_TOKEN_SECRET=access_secret
+REFRESH_TOKEN_SECRET=refresh_secret
+
+ACCESS_TOKEN_EXPIRES_IN=1d
+REFRESH_TOKEN_EXPIRES_IN=7d
+
+BETTER_AUTH_SESSION_TOKEN_EXPIRES_IN=7d
+BETTER_AUTH_SESSION_TOKEN_UPDATE_AGE=1d
 ```
