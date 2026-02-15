@@ -35,3 +35,15 @@
 | 03  | 🔏 Zod Validation       | [View](./module-29/03-zod-middleware.md)      |
 
 ---
+
+# 📦 Module 03 — Express.js Best Practices
+
+### 📚 Topics Covered
+
+| No. | Topic                | Link                                     |
+| --- | -------------------- | ---------------------------------------- |
+| 01  | 🔏 advanceFileUplode | [View](./module-30/advanceFileUplode.md) |
+| 02  | 🔏 basicFileUplode   | [View](./module-30/basicFileUplode.md)   |
+| 03  | 🔏 Zod Validation    | [View](./module-29/03-zod-middleware.md) |
+
+---
