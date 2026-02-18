@@ -28,11 +28,11 @@
 
 ### 📚 Topics Covered
 
-| No. | Topic                   | Link                                          |
-| --- | ----------------------- | --------------------------------------------- |
-| 01  | 🔏 env Variables Loader | [View](./module-29/01-env.md)                 |
-| 02  | 🔏 Global Error Handler | [View](./module-29/02-golobalErrorHandler.md) |
-| 03  | 🔏 Zod Validation       | [View](./module-29/03-zod-middleware.md)      |
+| No. | Topic                            | Link                                          |
+| --- | -------------------------------- | --------------------------------------------- |
+| 01  | 🔏 env Variables Loader          | [View](./module-29/01-env.md)                 |
+| 02  | 🔏 Global Error Handler & Logger | [View](./module-29/02-golobalErrorHandler.md) |
+| 03  | 🔏 Zod Validation                | [View](./module-29/03-zod-middleware.md)      |
 
 ---
 

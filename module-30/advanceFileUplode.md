@@ -295,7 +295,8 @@ export const uploadImageController = (req: Request, res: Response) => {
 
 ```typescript
 import express from "express";
-import { upload, uploadImageController } from "./upload.service";
+import { upload } from "./multer";
+import { uploadImageController } from "./file.controller";
 
 const router = express.Router();
 

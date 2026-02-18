@@ -1,93 +1,102 @@
-# 🌍 Global Error Handler (Express + TypeScript)
+- Dependencies
+  `pnpm add winston source-map-support`
+- Dev Dependencies
+  `pnpm add -D @types/source-map-support `
 
-Global Error Handler হচ্ছে এমন একটি middleware যা অ্যাপ্লিকেশনের যেকোনো জায়গা থেকে আসা error এক জায়গায় handle করে।
+### ১. Logger কনফিগারেশন (`src/utils/logger.ts`)
 
-এতে করে:
+এখানে `winston` ব্যবহার করা হয়েছে যা এররগুলোকে একটি ফাইল (`logs/error.log`) এবং কনসোলে সেভ করবে।
 
-- একই ফরম্যাটে error response যায়
-- কোড clean থাকে
-- Production এ sensitive তথ্য leak হয় না
-- Debugging সহজ হয়
+project/
+├─ src/
+├─ logs/
+│ └─ error.log ← error log এখানে জমা হবে। মানে console এ শুধু দেখাবে না — file এও save থাকবে।
 
----
+```typescript
+import winston from "winston";
 
-# 📁 File Structure Example
+/**
+ * কেন এই ফরম্যাট?
+ * combine: একাধিক ফরম্যাটকে একসাথে করার জন্য।
+ * timestamp: এররটি কখন হয়েছে তা জানার জন্য।
+ * errors({ stack: true }): এররের স্ট্যাক ট্রেস (লাইন নম্বরসহ) ক্যাপচার করার জন্য।
+ * json: প্রোডাকশনে লগ এনালাইসিস সহজ করার জন্য JSON ফরম্যাট।
+ */
+const logger = winston.createLogger({
+  level: "error",
+  format: winston.format.combine(
+    winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
+    winston.format.errors({ stack: true }),
+    winston.format.json(),
+  ),
+  transports: [
+    // শুধুমাত্র এররগুলো এই ফাইলে জমা হবে
+    new winston.transports.File({
+      filename: "logs/error.log",
+      level: "error",
+    }),
+    // সব ধরণের লগ (info, warn, error) এখানে থাকবে
+    new winston.transports.File({ filename: "logs/combined.log" }),
+  ],
+});
 
-```
-src/
- ├── middlewares/
- │     └── globalErrorHandler.ts
- ├── utils/
- │     └── AppError.ts
- ├── app.ts
-```
-
----
-
-# 1️⃣ Custom Error Class (`AppError.ts`)
-
-```ts
-class AppError extends Error {
-  public statusCode: number;
-
-  constructor(statusCode: number, message: string) {
-    super(message);
-    this.statusCode = statusCode;
-
-    Error.captureStackTrace(this, this.constructor);
-  }
+// যদি ডেভেলপমেন্ট মোডে থাকি, তবে কনসোলে রঙিন আউটপুট দেখাবে
+if (process.env.NODE_ENV !== "production") {
+  logger.add(
+    new winston.transports.Console({
+      format: winston.format.combine(
+        winston.format.colorize(),
+        winston.format.simple(),
+      ),
+    }),
+  );
 }
 
-export default AppError;
-```
-
-## 🔎 কী করছে?
-
-- Default Error কে extend করছে
-- Custom `statusCode` যোগ করছে
-- Stack trace maintain করছে
-
-এখন আমরা যেকোনো জায়গায় এভাবে error throw করতে পারি:
-
-```ts
-throw new AppError(404, "User not found");
+export default logger;
 ```
 
 ---
 
-# 2️⃣ Global Error Handler Middleware
+### ২. গ্লোবাল এরর হ্যান্ডলার (`src/middlewares/globalErrorHandler.ts`)
 
-## 📁 `globalErrorHandler.ts`
+এই ফাংশনটি অ্যাপ্লিকেশনের সব এরর এক জায়গায় রিসিভ করবে এবং লাইন নম্বরসহ লগ করবে।
 
-```ts
-import { Request, Response, NextFunction } from "express";
-import status from "http-status";
-import AppError from "../errorHelpers/AppError";
+```typescript
+import { Request, Response, NextFunction, ErrorRequestHandler } from "express";
+import logger from "../utils/logger";
 
-const globalErrorHandler = (
-  error: any,
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
-  let statusCode = status.INTERNAL_SERVER_ERROR;
-  let message = "Something went wrong";
+/**
+ * globalErrorHandler: এক্সপ্রেসের স্পেশাল মিডলওয়্যার (৪টি প্যারামিটার থাকে)।
+ * এটি catchAsync থেকে আসা সব এরর হ্যান্ডেল করে।
+ */
+const globalErrorHandler: ErrorRequestHandler = (err, req, res, next) => {
+  let statusCode = err.statusCode || 500;
+  let message = err.message || "Internal Server Error";
 
-  // 🔹 Custom AppError
-  if (error instanceof AppError) {
-    statusCode = error.statusCode;
-    message = error.message;
-  }
+  // ১. স্ট্যাক ট্রেস থেকে লাইন নম্বর বের করা
+  // সাধারণত err.stack এর দ্বিতীয় লাইনে (index 1) ফাইলের নাম ও লাইন থাকে
+  const stackLines = err.stack ? err.stack.split("\n") : [];
+  const originLine =
+    stackLines.length > 1 ? stackLines[1].trim() : "Unknown position";
 
-  // 🔹 Default Error
-  else if (error instanceof Error) {
-    message = error.message;
-  }
+  // ২. লগারে বিস্তারিত তথ্য পাঠানো
+  logger.error({
+    message: err.message,
+    location: originLine, // এখানে আপনি লাইন নম্বর দেখতে পাবেন
+    path: req.originalUrl, // কোন API এন্ডপয়েন্টে এরর হয়েছে
+    method: req.method, // GET, POST না কি অন্য কিছু
+    stack: err.stack, // পুরো স্ট্যাক ট্রেস (ডিপ ডিবাগিং এর জন্য)
+  });
 
+  // ৩. ইউজারকে রেসপন্স পাঠানো
   res.status(statusCode).json({
     success: false,
-    message,
-    stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+    message: message,
+    // শুধুমাত্র ডেভেলপমেন্ট এনভায়রনমেন্টে লাইন নম্বর ও স্ট্যাক দেখাবো
+    ...(process.env.NODE_ENV === "development" && {
+      errorSource: originLine,
+      stack: err.stack,
+    }),
   });
 };
 
@@ -96,126 +105,43 @@ export default globalErrorHandler;
 
 ---
 
-# 🧠 কীভাবে কাজ করে?
+### ৩. অ্যাপ্লিকেশনে সেটআপ এবং রান করার নিয়ম
 
-### Step 1: Express সব error এখানে পাঠায়
+আপনার মেইন ফাইল (যেমন: `app.ts` বা `server.ts`) নিচের মতো সাজান:
 
-যদি কোনো controller বা middleware এ error হয়:
-
-```ts
-next(error);
-```
-
-বা
-
-```ts
-throw new AppError(...)
-```
-
-তাহলে Express স্বয়ংক্রিয়ভাবে এই middleware এ পাঠায়।
-
----
-
-### Step 2: Error Type Check
-
-আমরা চেক করছি:
-
-- এটা কি `AppError`?
-- নাকি সাধারণ `Error`?
-
-তার ভিত্তিতে response পাঠানো হচ্ছে।
-
----
-
-### Step 3: Development vs Production
-
-```ts
-stack: process.env.NODE_ENV === "development" ? error.stack : undefined;
-```
-
-- Development এ full stack trace দেখাবে
-- Production এ hide থাকবে
-
-🔐 এতে sensitive information leak হয় না
-
----
-
-# 3️⃣ app.ts এ ব্যবহার
-
-সব route এর নিচে এটা ব্যবহার করতে হবে।
-
-```ts
+```typescript
+import "source-map-support/register"; // কম্পাইল্ড কোডে অরিজিনাল TS লাইন নম্বর পাওয়ার জন্য (মাস্ট!)
 import express from "express";
 import globalErrorHandler from "./middlewares/globalErrorHandler";
+import catchAsync from "./utils/catchAsync";
 
 const app = express();
 
-// Routes
-app.use("/api/users", userRoutes);
+// একটি ডেমো রাউট যেখানে এরর হতে পারে
+app.get(
+  "/test-error",
+  catchAsync(async (req, res) => {
+    // ধরুন এখানে একটি ভুল ভ্যারিয়েবল কল করা হলো
+    const user: any = undefined;
+    console.log(user.profile.name); // এখানে এরর হবে এবং catchAsync এটি ধরবে
+  }),
+);
 
-// Global Error Handler (Must be last)
+// সব রাউটের শেষে এটি অবশ্যই রাখতে হবে
 app.use(globalErrorHandler);
 
-export default app;
-```
-
-⚠️ খুব গুরুত্বপূর্ণ:
-Global error handler সব route এর পরে থাকতে হবে।
-
----
-
-# 🎯 কেন Global Error Handler দরকার?
-
-| Without Global Handler       | With Global Handler      |
-| ---------------------------- | ------------------------ |
-| এলোমেলো error response       | Structured JSON response |
-| Debug কঠিন                   | Debug সহজ                |
-| Sensitive info leak হতে পারে | Production-safe          |
-| Code messy                   | Clean & centralized      |
-
----
-
-# 📦 Example Error Response
-
-## Development Mode
-
-```json
-{
-  "success": false,
-  "message": "User not found",
-  "stack": "Error: User not found at ..."
-}
-```
-
-## Production Mode
-
-```json
-{
-  "success": false,
-  "message": "User not found"
-}
+app.listen(3000, () => console.log("Server running on port 3000"));
 ```
 
 ---
 
-# 💡 Best Practice
+### কেন এটি সেরা প্র্যাকটিস?
 
-### ✔ Always use custom AppError for business logic error
+- **TypeScript Friendly:** টাইপ সেফটি বজায় রাখা হয়েছে।
+- **Source Map Support:** যেহেতু আপনি TS লিখছেন, তাই `source-map-support` ব্যবহারের ফলে আপনি লগে `.js` ফাইলের বদলে সরাসরি `.ts` ফাইলের লাইন নম্বর দেখতে পাবেন।
+- **JSON Logging:** প্রোডাকশনে যখন আপনি `ELK Stack` বা `Winston` এনালাইজার ব্যবহার করবেন, তখন JSON ফরম্যাট অনেক উপকারে আসবে।
+- **Clean Response:** সাধারণ ইউজাররা শুধু এরর মেসেজ দেখবে, কিন্তু আপনি (ডেভেলপার) পুরো ডিটেইলস দেখতে পাবেন।
 
-### ✔ Never send raw error to client
+### পরবর্তী ধাপ:
 
-### ✔ Keep handler centralized
-
-### ✔ Log error internally (optional improvement)
-
----
-
-# 🔥 Summary
-
-Global Error Handler:
-
-- সব error এক জায়গায় handle করে
-- Clean architecture maintain করে
-- Production ready করে
-- Security improve করে
-- Debug সহজ করে
+আপনার কি কোনো **Custom API Error Class** লাগবে? যেখানে আপনি নিজেই বলে দিতে পারবেন এটি কি ৪০০ (Bad Request) না কি ৪0৪ (Not Found) এরর? আমি কি সেটি তৈরি করে দেব?
