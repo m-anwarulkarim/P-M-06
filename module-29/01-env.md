@@ -1,49 +1,46 @@
+# 📦 Environment Variables Loader
 
+এই ফাইলটি আমাদের প্রজেক্টের সব **গোপন তথ্য** (যেমন: ডাটাবেস পাসওয়ার্ড, সিক্রেট কি) `.env` ফাইল থেকে লোড করে এবং চেক করে যে সব ঠিক আছে কি না।
 
-# 📦 Environment Variables Loader (TypeScript)
+### কেন এটি ব্যবহার করবো?
 
-এই ফাইলটি প্রজেক্টে ব্যবহৃত সকল গুরুত্বপূর্ণ **environment variable** লোড ও ভ্যালিডেশন করার জন্য ব্যবহৃত হয়।
-
-এটি নিশ্চিত করে যে `.env` ফাইলে প্রয়োজনীয় সব ভ্যারিয়েবল আছে কিনা।
-কোনোটি না থাকলে অ্যাপ স্টার্ট হওয়ার আগেই error throw করবে।
+১. **নিরাপত্তা:** সরাসরি `process.env` ব্যবহার না করে একটি সেন্ট্রাল জায়গা থেকে ব্যবহার করা নিরাপদ।
+২. **ভুল ধরা:** যদি কোনো ভেরিয়েবল মিসিং থাকে, তবে অ্যাপ শুরু হওয়ার আগেই এরর দিয়ে আমাদের জানিয়ে দিবে।
+৩. **টাইপ সেফটি:** কোড লেখার সময় অটো-সাজেশন পাওয়া যায়।
 
 ---
 
-## 📁 `env.ts`
+## 📁 `env.ts` (ইমপ্লিমেন্টেশন)
 
 ```ts
 import dotenv from "dotenv";
+import path from "path";
 import status from "http-status";
 import AppError from "../errorHelpers/AppError";
 
-dotenv.config();
+// .env ফাইলটি খুঁজে বের করে লোড করা হচ্ছে
+dotenv.config({ path: path.join(process.cwd(), ".env") });
 
 /**
- * Environment Variables Type Definition
+ * ১. Interface: কি কি ভেরিয়েবল থাকবে এবং তাদের টাইপ কী হবে
  */
 interface EnvConfig {
-  NODE_ENV: string;
-  PORT: string;
+  NODE_ENV: "development" | "production" | "test";
+  PORT: number;
   DATABASE_URL: string;
-
   BETTER_AUTH_SECRET: string;
   BETTER_AUTH_URL: string;
-
   ACCESS_TOKEN_SECRET: string;
   REFRESH_TOKEN_SECRET: string;
-
   ACCESS_TOKEN_EXPIRES_IN: string;
   REFRESH_TOKEN_EXPIRES_IN: string;
-
-  BETTER_AUTH_SESSION_TOKEN_EXPIRES_IN: string;
-  BETTER_AUTH_SESSION_TOKEN_UPDATE_AGE: string;
 }
 
 /**
- * Load and Validate Required Environment Variables
+ * ২. লোড এবং ভ্যালিডেশন ফাংশন
  */
 const loadEnvVariables = (): EnvConfig => {
-  const requiredEnvVariables = [
+  const requiredEnv = [
     "NODE_ENV",
     "PORT",
     "DATABASE_URL",
@@ -51,135 +48,63 @@ const loadEnvVariables = (): EnvConfig => {
     "BETTER_AUTH_URL",
     "ACCESS_TOKEN_SECRET",
     "REFRESH_TOKEN_SECRET",
-    "ACCESS_TOKEN_EXPIRES_IN",
-    "REFRESH_TOKEN_EXPIRES_IN",
-    "BETTER_AUTH_SESSION_TOKEN_EXPIRES_IN",
-    "BETTER_AUTH_SESSION_TOKEN_UPDATE_AGE",
   ];
 
-  requiredEnvVariables.forEach((variable) => {
-    if (!process.env[variable]) {
-      throw new AppError(
-        status.INTERNAL_SERVER_ERROR,
-        `Environment variable ${variable} is missing in .env file`
-      );
-    }
-  });
+  // চেক করা হচ্ছে কোনো ভেরিয়েবল মিসিং আছে কি না
+  const missing = requiredEnv.filter((v) => !process.env[v]);
 
+  if (missing.length > 0) {
+    throw new AppError(
+      status.INTERNAL_SERVER_ERROR,
+      `❌ .env ফাইলে এই ভেরিয়েবলগুলো নেই: ${missing.join(", ")}`,
+    );
+  }
+
+  // সব ঠিক থাকলে ডাটা রিটার্ন করা হচ্ছে
   return {
-    NODE_ENV: process.env.NODE_ENV as string,
-    PORT: process.env.PORT as string,
-    DATABASE_URL: process.env.DATABASE_URL as string,
-
-    BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET as string,
-    BETTER_AUTH_URL: process.env.BETTER_AUTH_URL as string,
-
-    ACCESS_TOKEN_SECRET: process.env.ACCESS_TOKEN_SECRET as string,
-    REFRESH_TOKEN_SECRET: process.env.REFRESH_TOKEN_SECRET as string,
-
-    ACCESS_TOKEN_EXPIRES_IN: process.env.ACCESS_TOKEN_EXPIRES_IN as string,
-    REFRESH_TOKEN_EXPIRES_IN: process.env.REFRESH_TOKEN_EXPIRES_IN as string,
-
-    BETTER_AUTH_SESSION_TOKEN_EXPIRES_IN:
-      process.env.BETTER_AUTH_SESSION_TOKEN_EXPIRES_IN as string,
-    BETTER_AUTH_SESSION_TOKEN_UPDATE_AGE:
-      process.env.BETTER_AUTH_SESSION_TOKEN_UPDATE_AGE as string,
+    NODE_ENV: process.env.NODE_ENV as any,
+    PORT: Number(process.env.PORT) || 5000, // স্ট্রিং থেকে নাম্বারে রূপান্তর
+    DATABASE_URL: process.env.DATABASE_URL!,
+    BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET!,
+    BETTER_AUTH_URL: process.env.BETTER_AUTH_URL!,
+    ACCESS_TOKEN_SECRET: process.env.ACCESS_TOKEN_SECRET!,
+    REFRESH_TOKEN_SECRET: process.env.REFRESH_TOKEN_SECRET!,
+    ACCESS_TOKEN_EXPIRES_IN: process.env.ACCESS_TOKEN_EXPIRES_IN!,
+    REFRESH_TOKEN_EXPIRES_IN: process.env.REFRESH_TOKEN_EXPIRES_IN!,
   };
 };
 
+// ৩. পুরো প্রজেক্টে ব্যবহারের জন্য এক্সপোর্ট
 export const envVars = loadEnvVariables();
 ```
 
 ---
 
-# 🧠 কীভাবে কাজ করে?
+## 🧠 কীভাবে কাজ করে? (Step-by-Step)
 
-## 1️⃣ `dotenv.config()`
-
-`.env` ফাইল থেকে সব environment variable লোড করে `process.env` এ সেট করে।
-
----
-
-## 2️⃣ `EnvConfig` Interface
-
-এই interface বলে দেয় কোন কোন variable থাকতে হবে এবং সেগুলোর type কী হবে।
-
-এতে:
-
-* Type safety পাওয়া যায়
-* ভুল variable ব্যবহার করলে TypeScript error দিবে
+1. **`dotenv.config()`**: এটি আপনার `.env` ফাইলের সব লেখা পড়ে কম্পিউটারের মেমরিতে (process.env) জমা করে।
+2. **`Missing Check`**: এখানে আমরা সব বাধ্যতামূলক ভেরিয়েবলের একটি লিস্ট বানিয়েছি। লুপ চালিয়ে দেখা হয় সব আছে কি না। না থাকলে সুন্দর একটি এরর মেসেজ দেয়।
+3. **`Type Conversion`**: আমাদের পোর্টের ভ্যালু `.env` ফাইলে থাকে স্ট্রিং হিসেবে, আমরা এখানে সেটাকে **Number** বানিয়ে দিই।
+4. **`Export`**: শেষে `envVars` কে এক্সপোর্ট করি যাতে যেকোনো ফাইলে `envVars.PORT` লিখলেই আমরা ভ্যালু পেয়ে যাই।
 
 ---
 
-## 3️⃣ `requiredEnvVariables` Array
+## 🎯 কেন এটা সেরা প্র্যাকটিস?
 
-এখানে সব বাধ্যতামূলক `.env` variable রাখা হয়েছে।
-
-যদি কোনোটা missing থাকে → অ্যাপ স্টার্ট হওয়ার আগেই error দিবে।
+✅ **এক জায়গায় সব:** সব কনফিগ এক জায়গায় থাকে, খুঁজতে হয় না।
+✅ **শুরুতেই এরর:** অ্যাপ রান হওয়ার আগেই ভুল ধরা পড়ে (Fail Early)।
+✅ **স্মার্ট কোডিং:** `as string` এর বদলে ইন্টারফেস ব্যবহার করায় অটো-সাজেশন পাওয়া যায়।
 
 ---
 
-## 4️⃣ Validation Logic
+## 📌 ব্যবহারের উদাহরণ
+
+অন্য যেকোনো ফাইলে শুধু ইম্পোর্ট করে ব্যবহার করবেন:
 
 ```ts
-requiredEnvVariables.forEach((variable) => {
-  if (!process.env[variable]) {
-    throw new AppError(...);
-  }
+import { envVars } from "./config/env";
+
+app.listen(envVars.PORT, () => {
+  console.log(`সার্ভার চলছে ${envVars.PORT} পোর্টে`);
 });
-```
-
-এখানে আমরা চেক করছি:
-
-👉 `.env` এ সব variable আছে কিনা
-👉 না থাকলে custom error throw করছি
-
-এতে production এ গিয়ে crash হওয়ার আগে development stage-এই ধরা পড়ে।
-
----
-
-## 5️⃣ Final Export
-
-```ts
-export const envVars = loadEnvVariables();
-```
-
-এখন পুরো প্রজেক্টে তুমি ব্যবহার করতে পারবে:
-
-```ts
-import { envVars } from "../config/env";
-
-console.log(envVars.PORT);
-```
-
----
-
-# 🎯 কেন এটা ব্যবহার করা ভালো?
-
-✅ Centralized config
-✅ Runtime validation
-✅ Production-safe
-✅ TypeScript support
-✅ Crash early strategy
-
----
-
-# 📌 Example `.env`
-
-```env
-NODE_ENV=development
-PORT=5000
-DATABASE_URL=postgresql://...
-
-BETTER_AUTH_SECRET=your_secret
-BETTER_AUTH_URL=http://localhost:5000
-
-ACCESS_TOKEN_SECRET=access_secret
-REFRESH_TOKEN_SECRET=refresh_secret
-
-ACCESS_TOKEN_EXPIRES_IN=1d
-REFRESH_TOKEN_EXPIRES_IN=7d
-
-BETTER_AUTH_SESSION_TOKEN_EXPIRES_IN=7d
-BETTER_AUTH_SESSION_TOKEN_UPDATE_AGE=1d
 ```

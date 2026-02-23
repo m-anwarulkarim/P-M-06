@@ -33,6 +33,8 @@
 | 01  | 🔏 env Variables Loader          | [View](./module-29/01-env.md)                 |
 | 02  | 🔏 Global Error Handler & Logger | [View](./module-29/02-golobalErrorHandler.md) |
 | 03  | 🔏 Zod Validation                | [View](./module-29/03-zod-middleware.md)      |
+| 04  | 🔏 Coustome Error                | [View](./module-29/04-coustomeError.md)       |
+| 05  | 🔏 RF token                      | [View](./module-29/05-RFtoken.md)             |
 
 ---
 
@@ -44,6 +46,5 @@
 | --- | -------------------- | ---------------------------------------- |
 | 01  | 🔏 advanceFileUplode | [View](./module-30/advanceFileUplode.md) |
 | 02  | 🔏 basicFileUplode   | [View](./module-30/basicFileUplode.md)   |
-| 03  | 🔏 Zod Validation    | [View](./module-29/03-zod-middleware.md) |
 
 ---

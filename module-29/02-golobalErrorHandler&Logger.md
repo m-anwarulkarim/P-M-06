@@ -22,6 +22,7 @@ import winston from "winston";
  * errors({ stack: true }): এররের স্ট্যাক ট্রেস (লাইন নম্বরসহ) ক্যাপচার করার জন্য।
  * json: প্রোডাকশনে লগ এনালাইসিস সহজ করার জন্য JSON ফরম্যাট।
  */
+
 const logger = winston.createLogger({
   level: "error",
   format: winston.format.combine(

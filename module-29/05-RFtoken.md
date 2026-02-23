@@ -28,7 +28,7 @@ createToken({ userId: "123", role: "ADMIN" }, "secret_key", "15m");
 eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
 
-######### 🧠 কেন দরকার?
+#### 🧠 কেন দরকার?
 
 - User login করার পর
 - তাকে secureভাবে identify করার জন্য
@@ -40,7 +40,7 @@ eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ### 🔎 ২️⃣ verifyToken কী?
 
-######### 👉 কাজ:
+#### 👉 কাজ:
 
 Token আসল না নকল সেটা চেক করে।
 
@@ -50,7 +50,7 @@ Token আসল না নকল সেটা চেক করে।
 2. Token tamper করা হয়েছে?
 3. Expire হয়েছে?
 
-######### উদাহরণ:
+#### উদাহরণ:
 
 ```ts
 verifyToken(token, "secret_key");
@@ -59,7 +59,7 @@ verifyToken(token, "secret_key");
 যদি token ঠিক থাকে → payload return করবে
 না হলে → error দিবে
 
-######### 🧠 কেন দরকার?
+#### 🧠 কেন দরকার?
 
 Protected route এ ঢোকার আগে verify করতে হয়।
 
@@ -75,12 +75,12 @@ if (!verifyToken(token)) {
 
 ### 📖 ৩️⃣ decodeToken কী?
 
-######### 👉 কাজ:
+#### 👉 কাজ:
 
 Token এর ভিতরের data পড়তে পারে
 কিন্তু verify করে না ❌
 
-######### উদাহরণ:
+#### উদাহরণ:
 
 ```ts
 decodeToken(token);
@@ -88,7 +88,7 @@ decodeToken(token);
 
 এটা শুধু ভিতরের payload দেখায়।
 
-######### 🧠 কেন দরকার?
+#### 🧠 কেন দরকার?
 
 - Debugging
 - Logging
